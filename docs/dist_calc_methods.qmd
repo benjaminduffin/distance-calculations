@@ -1,0 +1,143 @@
+---
+execute: 
+  warning: false
+  error: false
+  message: false
+title: "Distance Calculations"
+format: 
+  html:
+    embed-resources: true
+    code-fold: true
+    code-tools: false
+---
+
+# Intro
+This document outlines the methods used for geolocating and generating distance calculation between geolocated points. These methods were used in the [The U.S. Department of Housing and Urban Development’s Use and Oversight of Telework and Remote Work](https://www.hudoig.gov/sites/default/files/2024-10/2024-oe-0004_final.pdf) report. 
+
+This example only utilizes data for Flexiplace agreement alternative worksite and and Flexiplace agreement duty station with distances > 500 miles.  
+
+``` {r init}
+
+library(tidygeocoder) 
+library(sf)
+library(tidyverse)
+library(readxl)
+library(writexl)
+library(geodist)
+library(data.table)
+library(ggplot2)
+library(plotly)
+
+# data 
+dat <- read_xlsx("C:/Users/duffinb/Documents/Projects/hud-pay-locality/output/Locality Pay Distance Calculations Request_Dists_XY_2024-04-04.xlsx")
+# subset 
+dat <- dat |> 
+  select(c(`Unique Identifier`, 
+           `Distance from Flexiplace Agreement Duty Station to Flexiplace Agreement Alternative Worksite`, 
+           FLEXIPLACE_ALTWORKSITE_lat:FLEXIPLACE_DUTY_STATION_lon 
+           )) 
+names(dat) <- c("ID", "Distance_Mi", "Altsite_lat", "Altsite_lon", 
+                "Duty_lat", "Duty_lon")
+dat <- subset(dat, 
+              Distance_Mi > 500)
+dat$grp <- sample(c("a", "b"), nrow(dat), replace = T)
+```
+
+
+
+# Process 
+- Geocode 
+  - Inputs: Specific address, or city and state
+  - Utilized the [ArcGIS Geocoding Service](https://developers.arcgis.com/rest/geocode/api-reference/overview-world-geocoding-service.htm)
+  - Outputs: point locations for each input (for city and state results generally return the centroid)
+- Distance Calculation 
+  - [Haversine formula](https://en.wikipedia.org/wiki/Haversine_formula) used to calculate distance
+  - Inputs: lat/lon endpoints (duty station and alternative worksite in this case)
+  - Outputs
+  - Convert from meters to miles using conversion factor of 1609
+
+## Other Notes
+- There is some error due to the assumption of sphere vs. the real shape of Earth (i.e., a spheroid shape). 
+- Haversine w/ about a 0.2% relative error
+  - So over 1km there is generally < 1m error
+- Great circle distance used as opposed to Rhumb line (constant azimuth)  
+
+
+
+# Example 
+```{css, echo = FALSE}
+.output {
+max-height: 800px;
+}
+```
+
+``` {r greatdist, fig}
+
+geo <- list(
+  scope = 'north america',
+  projection = list(type = 'azimuthal equal area'),
+  showland = TRUE,
+  landcolor = toRGB("gray95"),
+  countrycolor = toRGB("gray80")
+)
+
+geo <- list(
+  showland = TRUE,
+  showlakes = TRUE,
+  showcountries = TRUE,
+  showocean = TRUE,
+  countrywidth = 0.5,
+  landcolor = toRGB("grey90"),
+  lakecolor = toRGB("white"),
+  oceancolor = toRGB("white"),
+  projection = list(
+    type = 'orthographic',
+    rotation = list(
+      lon = -100,
+      lat = 40,
+      roll = 0
+    )
+  ),
+  lonaxis = list(
+   # showgrid = TRUE,
+    gridcolor = toRGB("gray40"),
+    gridwidth = 0.5
+  ),
+  lataxis = list(
+   # showgrid = TRUE,
+    gridcolor = toRGB("gray40"),
+    gridwidth = 0.5
+  )
+)
+
+
+fig <- plot_geo(locationmode = "USA-states", color = I("red"),
+                height = 700)
+
+fig <- fig |> 
+  add_markers(data = dat, 
+              x = ~Altsite_lon, y = ~Altsite_lat, 
+              size = .5) |> 
+  add_markers(data = dat, 
+              x = ~Duty_lon, y = ~Duty_lat, 
+              size = .5)
+
+fig <- fig |> 
+  add_segments(
+    data = group_by(dat, ID), 
+    x = ~Altsite_lon, xend = ~Duty_lon,
+    y = ~Altsite_lat, yend = ~Duty_lat,
+    alpha = 0.6, size = I(1.3), 
+    hoverinfo = "text", 
+    text = ~paste0(format(round(Distance_Mi), big.mark = ","), 
+                   " Miles")
+  ) 
+
+fig <- fig |> 
+  layout(title = "Distance Examples", 
+         showlegend = FALSE, 
+         geo = geo)
+
+fig
+
+```
