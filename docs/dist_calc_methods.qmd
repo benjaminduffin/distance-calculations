@@ -29,7 +29,7 @@ library(ggplot2)
 library(plotly)
 
 # data 
-dat <- read_xlsx("C:/Users/duffinb/Documents/Projects/hud-pay-locality/output/Locality Pay Distance Calculations Request_Dists_XY_2024-04-04.xlsx")
+dat <- read_xlsx("")
 # subset 
 dat <- dat |> 
   select(c(`Unique Identifier`, 

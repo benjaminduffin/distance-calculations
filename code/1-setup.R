@@ -1,14 +1,19 @@
 # Header ------------------------------------------------------------------
 
+# BD 3/13/2025
+# Distance calculations and examples
 
 # Libraries ---------------------------------------------------------------
 
-library(dotenv)
-library(keyring)
-library(writexl)
+library(tidygeocoder) 
+library(sf)
+library(tidyverse)
 library(readxl)
-library(dplyr)
-library(here)
+library(writexl)
+library(geodist)
+library(data.table)
+library(ggplot2)
+library(plotly)
 
 # File Structure ----------------------------------------------------------
 
